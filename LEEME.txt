@@ -1,0 +1,13 @@
+EL TALLER - versión instalable
+
+Para que se pueda instalar en teléfonos y computadoras, esta carpeta tiene que estar
+publicada en una dirección web con https. Con GitHub Pages:
+
+1. Creá un repositorio nuevo en GitHub (por ejemplo "el-taller").
+2. Subí TODO el contenido de esta carpeta a la raíz del repositorio.
+3. En Settings > Pages, elegí la rama "main" y la carpeta "/ (root)". Guardá.
+4. En un par de minutos la app queda en https://TU-USUARIO.github.io/el-taller/
+
+Desde esa dirección funciona el botón "Instalar la app".
+
+Para actualizar: reemplazá los archivos y cambiá el número de VERSION en sw.js.

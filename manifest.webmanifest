@@ -1,0 +1,17 @@
+{
+  "name": "El Taller",
+  "short_name": "El Taller",
+  "description": "Historias y posts para redes con la gráfica del Frente Amplio.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#004F9E",
+  "theme_color": "#004F9E",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
