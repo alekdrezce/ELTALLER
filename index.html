@@ -216,9 +216,11 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
         <div class="step"><h2><i>4</i>Elegí los colores</h2><div class="opts" id="o-esquema"></div></div>
         <div class="step"><h2><i>5</i>Firma</h2>
           <p class="hint">Los logos que van abajo a la derecha.</p>
-          <div class="field"><span class="lbl" id="dd-lbl">Logo del Frente Amplio</span>
+          <div class="fslot">
+            <label class="fhead"><input type="checkbox" id="fa-on">Logo del Frente Amplio</label>
+            <p class="hint" id="fa-off-hint" hidden>Apagado. Sirve cuando el logo de la departamental ya dice Frente Amplio.</p>
             <div class="dd" id="dd">
-              <button type="button" class="opt dd-btn" id="dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="dd-lbl dd-btn"></button>
+              <button type="button" class="opt dd-btn" id="dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Elegir el logo del Frente Amplio"></button>
               <div class="dd-list" id="dd-list" role="listbox" hidden></div>
             </div>
           </div>
@@ -482,8 +484,8 @@ function render(cv,ident,pz,foto){
       if(tw>sh*3.2){sz*=sh*3.2/tw;ctx.font=fnt(ft,wMax(ft),sz);tw=ctx.measureText(t).width}its.push({t,sz,w:tw,h:sh})}};
   const sig=pz.sig||[['nombre','logo','logoAlt'],['coordNombre','coord','coordAlt']].map(([t,a,b])=>({on:true,modo:id[a]||id[b]?'logo':'texto',texto:id[t],a:id[a],b:id[b]}));
   for(const g of sig){if(!g.on)continue;const im=g.modo==='logo'?(g.logo||(th.dark?(g.b||g.a):(g.a||g.b))):'';slot(im,im?'':g.texto)}
-  slot((FA[pz.logoFA]||FA[th.dark?'07':'04']).src,'');
-  const sg=sh*.56;let fw=its.reduce((s,o)=>s+o.w,0)+sg*(its.length-1);const fk=Math.min(1,(rw-2*m)/Math.max(1,fw));fw*=fk;
+  if(pz.faOn!==false)slot((FA[pz.logoFA]||FA[th.dark?'07':'04']).src,'');
+  const sg=sh*.56;let fw=its.reduce((s,o)=>s+o.w,0)+sg*Math.max(0,its.length-1);const fk=Math.min(1,(rw-2*m)/Math.max(1,fw));fw*=fk;
   const fyb=H-bot, cy1=fyb-sh-(isH?22:50);
   // contenido: se achica hasta entrar
   const x=R.x0+m,w=rw-2*m,h=Math.max(40,cy1-cy0),bl=bloques(pz.tipo,pz.campos||{},id);
@@ -521,7 +523,7 @@ function render(cv,ident,pz,foto){
 /* ---------- Estado ---------- */
 const ID=norm({}); // identidad fija: paleta y tipografías del Frente Amplio
 const SLOTS=[['comite','Comité','Nombre del comité'],['coord','Coordinadora o Departamental','Nombre de la coordinadora o departamental']];
-const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,campos:{},firma:{}},ls.get('tgb.pieza',{}));
+const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,campos:{},faOn:true,firma:{}},ls.get('tgb.pieza',{}));
 if(!FORMATOS[st.formato])st.formato='vertical';if(!TIPOS[st.tipo])st.tipo='convocatoria';
 if(!st.campos||typeof st.campos!=='object')st.campos={};if(!st.firma||typeof st.firma!=='object')st.firma={};
 for(const[k,t]of Object.entries(TIPOS)){st.campos[k]=st.campos[k]||{};for(const c of t.campos)if(st.campos[k][c[0]]==null)st.campos[k][c[0]]=c[2]}
@@ -531,8 +533,8 @@ let foto=null;
 const lista=k=>{const v=ls.get(k,[]);return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]};
 let logosRec=lista('tgb.logos'),nombresRec=lista('tgb.nombres');
 const recordar=(arr,v,max)=>[v,...arr.filter(x=>x!==v)].slice(0,max);
-const guardarPieza=()=>ls.set('tgb.pieza',{formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,fotoModo:st.fotoModo,fotoY:st.fotoY,campos:st.campos,firma:st.firma});
-const pieza=()=>({formato:st.formato,tipo:st.tipo,esquema:st.esquema,fotoModo:st.fotoModo,fotoY:st.fotoY,logoFA:st.logoFA,
+const guardarPieza=()=>ls.set('tgb.pieza',{formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,faOn:st.faOn,fotoModo:st.fotoModo,fotoY:st.fotoY,campos:st.campos,firma:st.firma});
+const pieza=()=>({formato:st.formato,tipo:st.tipo,esquema:st.esquema,fotoModo:st.fotoModo,fotoY:st.fotoY,logoFA:st.logoFA,faOn:st.faOn,
   sig:SLOTS.map(([k])=>({...st.firma[k]})),campos:st.campos[st.tipo]});
 const seg=(box,val)=>{for(const b of box.children)b.setAttribute('aria-pressed',String(b.dataset.v===val))};
 function achicar(file){ // los logos se guardan livianos para poder recordarlos
@@ -574,10 +576,12 @@ $('#foto-y').value=st.fotoY;$('#foto-y').oninput=e=>{st.fotoY=+e.target.value;gu
 
 // Logo del Frente Amplio
 function ddItem(k){const f=FA[k];return[el('span',{class:'dd-thumb'+(f&&f.osc?' osc':'')},f?el('img',{src:f.src,alt:''}):el('span',{class:'dd-auto'},'AUTO')),el('span',{},f?f.n:'Automático según el fondo')]}
-function uiLogo(){const cur=FA[st.logoFA]?st.logoFA:'auto';$('#dd-btn').replaceChildren(el('span',{style:'display:flex;gap:10px;align-items:center;min-width:0'},...ddItem(cur)));
+function uiLogo(){const on=st.faOn!==false;$('#fa-on').checked=on;$('#dd').hidden=!on;$('#fa-off-hint').hidden=on;if(!on)ddAbrir(false);
+  const cur=FA[st.logoFA]?st.logoFA:'auto';$('#dd-btn').replaceChildren(el('span',{style:'display:flex;gap:10px;align-items:center;min-width:0'},...ddItem(cur)));
   $('#dd-list').replaceChildren(...['auto','04','07','06','05','08','09','10','13','14','15','12','11'].map(k=>el('button',{type:'button',class:'dd-item',role:'option','aria-selected':String(k===cur),onclick:()=>{st.logoFA=k;ddAbrir(false);cambio()}},...ddItem(k))))}
 function ddAbrir(v){$('#dd-list').hidden=!v;$('#dd-btn').setAttribute('aria-expanded',String(v))}
 $('#dd-btn').onclick=()=>ddAbrir($('#dd-list').hidden);
+$('#fa-on').onchange=e=>{st.faOn=e.target.checked;cambio()};
 document.addEventListener('click',e=>{if(!$('#dd').contains(e.target))ddAbrir(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){ddAbrir(false);$('#inst').hidden=true;$('#sheet').hidden=true}});
 
