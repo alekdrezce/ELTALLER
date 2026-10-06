@@ -119,6 +119,7 @@ h1,h2,h3{font-family:var(--display);font-weight:400;text-transform:uppercase;let
 .dd-thumb.osc{background:var(--tile-osc)}
 .dd-thumb img{max-width:100%;max-height:100%;display:block}
 .dd-auto{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--tile-osc)}
+#copy-txt{min-height:180px;line-height:1.45}
 #firma-slots,#oradores{display:flex;flex-direction:column;gap:10px}
 #oradores .seg{align-self:flex-start}
 .or-sl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;width:100%}
@@ -260,6 +261,15 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
             <button type="button" class="btn" data-red="x">X</button>
           </div>
           <div class="note" id="share-box" hidden></div>
+        </div>
+        <div class="step" id="paso-copy"><h2><i>7</i>Texto para la publicación</h2>
+          <p class="hint">Se arma solo con lo que escribiste en la pieza. Podés retocarlo acá antes de copiarlo.</p>
+          <textarea id="copy-txt" rows="10" aria-label="Texto para acompañar la publicación"></textarea>
+          <div class="row">
+            <button type="button" class="btn primary" id="b-copy">Copiar el texto</button>
+            <button type="button" class="btn small" id="b-copy-auto" hidden>Volver al texto automático</button>
+            <span class="msg" id="copy-msg" aria-live="polite"></span>
+          </div>
         </div>
       </section>
     </div>
@@ -1041,7 +1051,7 @@ function avisar(r){const A=[];
   if(st.faOn!==false&&FA_COL[st.logoFA]&&cr(FA_COL[st.logoFA],r.th.bg)<1.7)A.push(['logo','El logo del Frente Amplio que elegiste casi no se ve sobre este fondo.','Usar el automático',()=>{st.logoFA='auto';cambio()}]);
   const key=A.map(a=>a[0]).join()+st.formato;if(key===avisoKey)return;avisoKey=key;
   $('#avisos').hidden=!A.length;$('#avisos').replaceChildren(...A.map(a=>el('div',{class:'aviso'},el('span',{},a[1]),...(a[2]?[el('button',{type:'button',class:'btn small',onclick:a[3]},a[2])]:[]))))}
-function pintar(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;ensureFont(ID.fuenteTitulo);ensureFont(ID.fuenteTexto);avisar(render($('#lienzo'),ID,pieza(),foto))})}
+function pintar(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;ensureFont(ID.fuenteTitulo);ensureFont(ID.fuenteTexto);avisar(render($('#lienzo'),ID,pieza(),foto));uiCopy()})}
 
 /* ---------- Pantalla ---------- */
 function opciones(box,items,sel,on){box.replaceChildren(...items.map(o=>el('button',{class:'opt','aria-pressed':String(o.v===sel),type:'button',onclick:()=>on(o.v)},...(o.pre?[o.pre]:[]),el('span',{},el('b',{},o.n),...(o.d?[el('small',{},o.d)]:[])))))}
@@ -1049,7 +1059,7 @@ function uiCrear(){
   const esVol=st.formato==='volante',esqs=esVol?['claro','claro2']:ID.esquemas,idV=esVol?{...ID,colores:{...ID.colores,claro:'#FFFFFF'}}:ID;
   if(!esqs.includes(st.esquema))st.esquema=esqs[0];
   opciones($('#o-formato'),Object.entries(FORMATOS).map(([v,f])=>{const k=22/Math.max(f.w,f.h);return{v,n:f.n,d:f.d,pre:el('span',{class:'shape'},el('u',{style:`width:${Math.round(f.w*k)+4}px;height:${Math.round(f.h*k)+4}px`}))}}),st.formato,v=>{st.formato=v;cambio()});
-  opciones($('#o-tipo'),Object.entries(TIPOS).map(([v,t])=>({v,n:t.n,d:t.d})),st.tipo,v=>{st.tipo=v;respaldo=null;$('#b-deshacer').hidden=true;cambio(true)});
+  opciones($('#o-tipo'),Object.entries(TIPOS).map(([v,t])=>({v,n:t.n,d:t.d})),st.tipo,v=>{st.tipo=v;respaldo=null;copyManual=null;$('#b-deshacer').hidden=true;cambio(true)});
   opciones($('#o-esquema'),esqs.map(v=>{const t=tema(idV,v);return{v,n:esVol?esqNombre(ID,v).replace('Claro','Fondo blanco'):esqNombre(ID,v),pre:el('span',{class:'tile',style:`background:${t.bg};color:${t.tit}`},'Aa')}}),st.esquema,v=>{st.esquema=v;cambio()});
   const F=FORMATOS[st.formato];const vol=st.formato==='volante';$('#dims').textContent=vol?'Volante · al descargar sale la hoja A4 con 4':F.n+' · '+F.w+' × '+F.h+' px';
   $('#b-png2').textContent=vol?'Descargar la hoja A4 para imprimir':'Descargar la imagen';$('#b-png').textContent=vol?'Descargar hoja A4':'Descargar';$('#vol-hint').hidden=$('#b-solo').hidden=!vol;
@@ -1235,9 +1245,39 @@ async function pdfA4(jpg,wpx,hpx){const img=new Uint8Array(await jpg.arrayBuffer
   put('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF\n');return new Blob(parts,{type:'application/pdf'})}
 const REDES={whatsapp:['WhatsApp',t=>'https://wa.me/?text='+encodeURIComponent(t)],instagram:['Instagram',()=>'https://www.instagram.com/'],
   facebook:['Facebook',()=>'https://www.facebook.com/'],x:['X',t=>'https://x.com/intent/post?text='+encodeURIComponent(t)]};
+// Texto para acompañar la publicación: un modelo por tipo de pieza. Cada renglón sale solo si tiene con qué llenarse
+let copyManual=null;
+function copyAuto(){const c=st.campos[st.tipo],q=x=>String(x||'').replace(/\*/g,'').replace(/[ \t]+/g,' ').trim(),t=st.tipo;
+  const cierre=s=>s&&!/[.!?…:]$/.test(s)?s+'.':s; // punto final si falta
+  const dato=(ico,v)=>q(v)?ico+' '+q(v):'';
+  const datos=[dato('📅',c.fecha),dato('🕒',c.hora),dato('📍',c.lugar)];
+  const nombres=SLOTS.map(([k])=>st.firma[k]).filter(f=>f.on&&f.modo==='texto'&&q(f.texto)).map(f=>q(f.texto));
+  const tag=n=>'#'+n.split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(p=>p[0].toUpperCase()+p.slice(1)).join('');
+  const tags=[...new Set(['#FrenteAmplio',...nombres.map(tag).filter(x=>x.length>2)])].join(' ');
+  const firma=nombres.join(' · ');
+  let B; // bloques (párrafos); cada uno es una lista de renglones
+  if(t==='convocatoria')B=[[q(c.titulo)&&'📢 '+q(c.titulo)],[cierre(q(c.bajada))],datos,[datos.some(Boolean)&&'¡Te esperamos!']];
+  else if(t==='actividad')B=[[q(c.titulo)],[cierre(q(c.bajada))],datos,[datos.some(Boolean)&&'Vení y participá.']];
+  else if(t==='oradores'){const O=st.oradores.lista.filter(o=>q(o.nombre)).map(o=>'• '+q(o.nombre)+(q(o.rol)?', '+q(o.rol):''));
+    B=[[[q(c.etiqueta),q(c.titulo)].filter(Boolean).join(': ')],[cierre(q(c.bajada))],datos,O.length?[(q(c.orTit)||'Participan')+':',...O]:[],[datos.some(Boolean)&&'¡Te esperamos!']]}
+  else if(t==='fecha')B=[[[q(c.fecha),q(c.titulo)].filter(Boolean).join(' | ')],[cierre(q(c.texto))]];
+  else if(t==='comunicado')B=[[[q(c.etiqueta),q(c.titulo)].filter(Boolean).join(': ')],...q(c.cuerpo).split(/\n+/).map(p=>[p.trim()]),[q(c.lugarFecha),q(c.firma)]];
+  else if(t==='frase')B=[[q(c.cita)&&'“'+q(c.cita).replace(/^["“”«]+|["“”»]+$/g,'')+'”',q(c.autor)&&'— '+q(c.autor)]];
+  else B=[[q(c.titulo)],[cierre(q(c.bajada))]];
+  const cuerpo=B.map(b=>b.filter(Boolean).join('\n')).filter(Boolean);
+  if(!cuerpo.length)return'';
+  return[...cuerpo,firma,tags].filter(Boolean).join('\n\n')}
+function uiCopy(){const vol=st.formato==='volante';$('#paso-copy').hidden=vol;if(vol)return;const ta=$('#copy-txt');
+  if(copyManual===null){const v=copyAuto();if(ta.value!==v)ta.value=v}
+  $('#b-copy-auto').hidden=copyManual===null;$('#b-copy').disabled=!ta.value.trim()}
+$('#copy-txt').oninput=e=>{copyManual=e.target.value;$('#copy-msg').textContent='';uiCopy()};
+$('#b-copy-auto').onclick=()=>{copyManual=null;$('#copy-msg').textContent='';uiCopy()};
+$('#b-copy').onclick=async()=>{const ta=$('#copy-txt'),m=$('#copy-msg');
+  try{await navigator.clipboard.writeText(ta.value);m.textContent='Copiado. Pegalo al publicar.'}
+  catch{ta.focus();ta.select();let ok=false;try{ok=document.execCommand('copy')}catch{}m.textContent=ok?'Copiado. Pegalo al publicar.':'No se pudo copiar solo: el texto quedó seleccionado, copialo a mano.'}};
 function textoPieza(){const c=st.campos[st.tipo],q=x=>String(x||'').replace(/\*/g,'').trim();
   return[q(c.titulo||c.cita),[q(c.fecha),q(c.hora)].filter(Boolean).join(' · '),q(c.lugar)].filter(Boolean).join('\n')}
-$('#share').onclick=async e=>{const red=e.target.dataset.red;if(!red)return;const[nom,url]=REDES[red],box=$('#share-box'),txt=textoPieza();
+$('#share').onclick=async e=>{const red=e.target.dataset.red;if(!red)return;const[nom,url]=REDES[red],box=$('#share-box'),txt=red==='whatsapp'&&$('#copy-txt').value.trim()?$('#copy-txt').value.trim():textoPieza();
   box.hidden=false;box.textContent='Preparando la imagen…';
   let blob;try{blob=await blobFinal()}catch{box.textContent='No se pudo generar la imagen.';return}
   // Donde el dispositivo lo permite, se abre el menú de compartir con la imagen adjunta
