@@ -120,6 +120,8 @@ h1,h2,h3{font-family:var(--display);font-weight:400;text-transform:uppercase;let
 .dd-thumb img{max-width:100%;max-height:100%;display:block}
 .dd-auto{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--tile-osc)}
 #copy-txt{min-height:180px;line-height:1.45}
+#vol-campo.falta input{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+#vol-campo.falta #vol-msg{color:var(--danger);font-weight:600}
 #firma-slots,#oradores{display:flex;flex-direction:column;gap:10px}
 #oradores .seg{align-self:flex-start}
 .or-sl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;width:100%}
@@ -248,6 +250,11 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
           <div id="firma-slots"></div>
         </div>
         <div class="step"><h2><i>6</i>¡Lista!</h2>
+          <div class="field" id="vol-campo" hidden>
+            <label for="vol-nom">Nombre del comité o coordinadora</label>
+            <input type="text" id="vol-nom" maxlength="60" autocomplete="off" list="dl-nombres" aria-describedby="vol-msg">
+            <p class="hint" id="vol-msg">Se usa para el nombre del archivo.</p>
+          </div>
           <button type="button" class="btn primary big" id="b-png2">Descargar la imagen</button>
           <p class="hint" id="vol-hint" hidden>Se descarga un PDF tamaño A4 con el volante repetido cuatro veces y líneas punteadas para recortar. El fondo va siempre blanco para no gastar tinta.</p>
           <button type="button" class="btn" id="b-solo" hidden>Descargar un solo volante (imagen)</button>
@@ -933,7 +940,7 @@ function bloques(tipo,c,id,pz){
   const ft=id.fuenteTitulo,fb=id.fuenteTexto,up=!!id.mayus;
   const t=s=>String(s==null?'':s).trim();
   const gap=h=>({k:'gap',h}), rule={k:'rule',text:'x'};
-  const kick=(x,size=38)=>({k:'text',text:t(x),f:fb,w:wt(fb,600),size,lh:1.25});
+  const kick=(x,size=50)=>({k:'text',text:t(x),f:fb,w:wt(fb,700),size,lh:1.22});
   const tit=(x,size)=>({k:'text',text:marcar(t(x),c.resaltar),f:ft,w:wMax(ft),size,lh:up?1.04:1.1,upper:up,tit:1});
   const txt=(x,size,o={})=>({k:'text',text:t(x),f:fb,size,lh:1.3,...o,w:wt(fb,o.w||400)});
   let L;
@@ -942,10 +949,10 @@ function bloques(tipo,c,id,pz){
       txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),42,{w:700}),gap(4),txt(c.lugar,38)];
   else if(tipo==='oradores'){const O=pz&&pz.oradores||{},its=(O.lista||[]).filter(o=>String(o.nombre||'').trim()||(O.modo==='fotos'&&o.foto));
     L=[kick(c.etiqueta),gap(14),tit(c.titulo,146),gap(26),txt(c.bajada,40,{w:600}),gap(4),
-      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),40,{w:700}),gap(4),txt(c.lugar,36),gap(40),kick(its.length?c.orTit:'',32),gap(18),
+      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),40,{w:700}),gap(4),txt(c.lugar,36),gap(40),kick(its.length?c.orTit:'',40),gap(18),
       O.modo==='fotos'?{k:'orfotos',items:its,f:fb,ft,d:230,text:its.length?'x':''}:O.modo==='compacta'?{k:'orlist',items:its,f:fb,size:32,cols:2,text:its.length?'x':''}:{k:'orlist',items:its,f:fb,size:40,text:its.length?'x':''}];}
   else if(tipo==='fecha')
-    L=[kick(c.fecha,46),gap(14),tit(c.titulo,164),gap(36),rule,gap(36),txt(c.texto,40,{w:600})];
+    L=[kick(c.fecha,58),gap(14),tit(c.titulo,164),gap(36),rule,gap(36),txt(c.texto,40,{w:600})];
   else if(tipo==='comunicado')
     L=[kick(c.etiqueta),gap(14),tit(c.titulo,112),gap(30),rule,gap(30),txt(c.cuerpo,34,{lh:1.42}),gap(36),txt(c.lugarFecha,28,{a:.8}),gap(6),txt(c.firma,32,{w:700})];
   else if(tipo==='frase')
@@ -982,10 +989,27 @@ function render(cv,ident,pz,foto){
   const fyb=H-bot, cy1=fyb-sh-(isH?22:50);
   // contenido: se achica hasta entrar
   const x=R.x0+m,w=rw-2*m,h=Math.max(40,cy1-cy0),bl=bloques(pz.tipo,pz.campos||{},id,pz);
-  let k=(isS?1.15:isH?.6:pz.formato==='vertical'||pz.formato==='volante'?1:.9)*1.4,total=0;const tope=h*.84; // crece hasta ocupar bien el espacio
-  for(;;){total=0;let over=false;for(const b of bl){b._k=k;const r=medir(ctx,b,w,k);b._h=r.h;total+=r.h;over=over||r.over}
-    if((total<=tope&&!over)||k<.25)break;k*=.96}
-  let y=modo==='fondo'?cy1-total:cy0+(h-total)*.46;
+  // Ajuste al espacio: el texto chico arranca en un tamaño cómodo para cada formato y el título ocupa lo que queda.
+  const kbMax=isS?1.36:isH?.84:pz.formato==='cuadrado'?1.04:1.16;
+  const encajar=(lista,ww,tope,kb0)=>{let kb=kb0,kt=kb*2.3,total=0;
+    for(;;){total=0;let overT=false,overB=false;for(const b of lista){const k=b.tit?kt:kb;b._k=k;const r=medir(ctx,b,ww,k);b._h=r.h;total+=r.h;if(r.over){if(b.tit)overT=true;else overB=true}}
+      if((total<=tope&&!overT&&!overB)||kb<.25)break;
+      if(overB){kb*=.96;continue}
+      if(overT||kt>kb)kt*=.96;                      // 1) el título baja hasta su proporción normal
+      else if(kb>kb0*.72){kb*=.96;kt=kb}            // 2) después bajan los dos juntos, sin que el texto chico pierda legibilidad
+      else if(kt>kb*.6)kt*=.96;                     // 3) el título cede un poco más
+      else{kb*=.96;kt=kb*.6}}                       // 4) último recurso: todo más chico
+    return{kb,kt,total}};
+  let cols=[{lista:bl,x,w}],f1=encajar(bl,w,h*.86,kbMax);cols[0].total=f1.total;
+  // En el formato apaisado, si el texto tuvo que achicarse, se prueba en dos columnas: título a la izquierda, datos a la derecha
+  if(isH&&modo!=='bloque'&&(f1.kb<kbMax*.92||f1.kt<f1.kb)){const ti=bl.findIndex(b=>b.tit);
+    if(ti>=0){let fin=ti+1;if(bl[fin+1]&&bl[fin].k==='gap'&&bl[fin+1].k==='rule')fin+=2;
+      const A=bl.slice(0,fin),B=bl.slice(fin);while(B.length&&B[0].k==='gap')B.shift();
+      if(B.some(b=>b.k!=='gap')){const sep=56,wA=Math.round((w-sep)*.5),wB=w-sep-wA,fB=encajar(B,wB,h*.92,kbMax),fA=encajar(A,wA,h*.92,fB.kb);
+        if(fB.kb>=f1.kb*1.1&&fA.kt*1.05>=f1.kt)cols=[{lista:A,x,w:wA,total:fA.total},{lista:B,x:x+wA+sep,w:wB,total:fB.total}];
+        else{f1=encajar(bl,w,h*.86,kbMax);cols[0].total=f1.total}}}}
+  for(const c of cols)c.y=modo==='fondo'?cy1-c.total:cy0+(h-c.total)*.46;
+  let y=Math.min(...cols.map(c=>c.y));
   // fondo y foto
   ctx.fillStyle=th.bg;ctx.fillRect(0,0,W,H);
   if(modo==='fondo'){cubrir(ctx,foto,0,0,W,H,fy,fx,fz);
@@ -1010,16 +1034,16 @@ function render(cv,ident,pz,foto){
   if((pie||tag)&&libre>170){const size=isH?20:26,fb=id.fuenteTexto;ctx.textBaseline='alphabetic';ctx.textAlign='left';ctx.fillStyle=th.fg;
     ctx.font=fnt(fb,wt(fb,700),size);if(pie)ctx.fillText(pie,R.x0+m,fyb-4,libre);
     ctx.font=fnt(fb,wt(fb,500),size);if(tag)ctx.fillText(tag,R.x0+m,fyb-4-(pie?size*1.35:0),libre)}
-  for(const b of bl){if(b.k!=='gap')dibujar(ctx,b,x,y,w,al,th);y+=b._h}
+  for(const c of cols){let cy=c.y;for(const b of c.lista){if(b.k!=='gap')dibujar(ctx,b,c.x,cy,c.w,al,th);cy+=b._h}}
   // tamaño de la letra más chica que quedó, para avisar si no se va a leer
-  const tam=bl.map(b=>b.k==='text'?b.size*k:b.k==='orfotos'?b._.mpx:b.k==='orlist'?b.size*.76*k:0).filter(Boolean);
+  const tam=bl.map(b=>b.k==='text'?b.size*b._k:b.k==='orfotos'?b._.mpx:b.k==='orlist'?b.size*.76*b._k:0).filter(Boolean);
   return{th,minPx:tam.length?Math.min(...tam):99};
 }
 
 /* ---------- Estado ---------- */
 const ID=norm({}); // identidad fija: paleta y tipografías del Frente Amplio
 const SLOTS=[['comite','Comité','Nombre del comité'],['coord','Coordinadora o Departamental','Nombre de la coordinadora o departamental']];
-const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,fotoX:50,fotoZoom:100,fotoGrad:50,campos:{},faOn:true,firma:{}},ls.get('tgb.pieza',{}));
+const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,fotoX:50,fotoZoom:100,fotoGrad:50,campos:{},faOn:true,volNombre:null,firma:{}},ls.get('tgb.pieza',{}));
 if(!FORMATOS[st.formato])st.formato='vertical';if(!TIPOS[st.tipo])st.tipo='convocatoria';
 if(!st.campos||typeof st.campos!=='object')st.campos={};if(!st.firma||typeof st.firma!=='object')st.firma={};
 for(const[k,t]of Object.entries(TIPOS)){st.campos[k]=st.campos[k]||{};for(const c of t.campos)if(st.campos[k][c[0]]==null)st.campos[k][c[0]]=c[2]}
@@ -1031,7 +1055,7 @@ let foto=null;
 const lista=k=>{const v=ls.get(k,[]);return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]};
 let logosRec=lista('tgb.logos'),nombresRec=lista('tgb.nombres');
 const recordar=(arr,v,max)=>[v,...arr.filter(x=>x!==v)].slice(0,max);
-const guardarPieza=()=>ls.set('tgb.pieza',{formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,faOn:st.faOn,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,campos:st.campos,firma:st.firma,oradores:st.oradores});
+const guardarPieza=()=>ls.set('tgb.pieza',{volNombre:st.volNombre,formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,faOn:st.faOn,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,campos:st.campos,firma:st.firma,oradores:st.oradores});
 const pieza=()=>({formato:st.formato,tipo:st.tipo,esquema:st.esquema,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,logoFA:st.logoFA,faOn:st.faOn,oradores:st.oradores,
   sig:SLOTS.map(([k])=>({...st.firma[k]})),campos:st.campos[st.tipo]});
 const seg=(box,val)=>{for(const b of box.children)b.setAttribute('aria-pressed',String(b.dataset.v===val))};
@@ -1062,7 +1086,7 @@ function uiCrear(){
   opciones($('#o-tipo'),Object.entries(TIPOS).map(([v,t])=>({v,n:t.n,d:t.d})),st.tipo,v=>{st.tipo=v;respaldo=null;copyManual=null;$('#b-deshacer').hidden=true;cambio(true)});
   opciones($('#o-esquema'),esqs.map(v=>{const t=tema(idV,v);return{v,n:esVol?esqNombre(ID,v).replace('Claro','Fondo blanco'):esqNombre(ID,v),pre:el('span',{class:'tile',style:`background:${t.bg};color:${t.tit}`},'Aa')}}),st.esquema,v=>{st.esquema=v;cambio()});
   const F=FORMATOS[st.formato];const vol=st.formato==='volante';$('#dims').textContent=vol?'Volante · al descargar sale la hoja A4 con 4':F.n+' · '+F.w+' × '+F.h+' px';
-  $('#b-png2').textContent=vol?'Descargar la hoja A4 para imprimir':'Descargar la imagen';$('#b-png').textContent=vol?'Descargar hoja A4':'Descargar';$('#vol-hint').hidden=$('#b-solo').hidden=!vol;
+  $('#b-png2').textContent=vol?'Descargar la hoja A4 para imprimir':'Descargar la imagen';$('#b-png').textContent=vol?'Descargar hoja A4':'Descargar';{const i=$('#vol-nom');$('#vol-campo').hidden=!vol;if(document.activeElement!==i&&i.value!==volNombre())i.value=volNombre();if(nombreVolantes())volFalta(false);else if(!$('#vol-campo').classList.contains('falta'))volFalta(false)}$('#vol-hint').hidden=$('#b-solo').hidden=!vol;
   uiLogo();uiFirma();
   $('#foto-ctl').hidden=!foto;for(const[idc,k]of FSL)$('#'+idc).value=st[k]??50;$('#foto-g').hidden=$('#foto-g-lbl').hidden=esVol||st.fotoModo!=='fondo';$('#s-fotomodo').hidden=esVol;$('#b-foto-x').hidden=!foto;seg($('#s-fotomodo'),st.fotoModo);
   pintar();
@@ -1195,7 +1219,8 @@ $('#b-deshacer').onclick=()=>{if(!respaldo)return;st.campos[respaldo.tipo]=respa
 $('#b-png').onclick=$('#b-png2').onclick=async()=>{
   decir('Preparando la imagen…');
   try{let blob,name;
-    if(st.formato==='volante'){const c=await hojaA4();blob=await pdfA4(await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('sin imagen')),'image/jpeg',.95)),c.width,c.height);name='el-taller-volantes-a4.pdf'}
+    if(st.formato==='volante'){if(!nombreVolantes()){volFalta(true);decir('Falta el nombre del comité o coordinadora.',1);const i=$('#vol-nom');i.scrollIntoView({block:'center'});i.focus({preventScroll:true});return}
+      const c=await hojaA4();blob=await pdfA4(await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('sin imagen')),'image/jpeg',.95)),c.width,c.height);name=nombreVolantes()}
     else{blob=await blobFinal();name=nombreArchivo()}
     const r=await guardar(blob,name);decir(r==='ok'?'Listo: '+name:r==='no'?'Descarga cancelada.':name.endsWith('.pdf')?'No se pudo descargar el PDF acá. Probá con "Ver en grande".':'',r==='ver'&&name.endsWith('.pdf'))}
   catch{decir('No se pudo generar el archivo.',1)}
@@ -1217,7 +1242,7 @@ $('#b-todos').onclick=async()=>{decir('Preparando todos los formatos…');
   try{await Promise.all([ensureFont(ID.fuenteTitulo),ensureFont(ID.fuenteTexto)]);const files=[],c=document.createElement('canvas');
     for(const f of['historia','cuadrado','vertical','horizontal']){render(c,ID,{...pieza(),formato:f},foto);
       const b=await new Promise((res,rej)=>c.toBlob(x=>x?res(x):rej(new Error('sin imagen')),'image/png'));files.push({name:'el-taller-'+st.tipo+'-'+f+'.png',blob:b})}
-    const hc=await hojaA4();files.push({name:'el-taller-volantes-a4.pdf',blob:await pdfA4(await new Promise((res,rej)=>hc.toBlob(x=>x?res(x):rej(new Error('sin imagen')),'image/jpeg',.95)),hc.width,hc.height)});
+    const hc=await hojaA4();files.push({name:nombreVolantes()||'volantes.pdf',blob:await pdfA4(await new Promise((res,rej)=>hc.toBlob(x=>x?res(x):rej(new Error('sin imagen')),'image/jpeg',.95)),hc.width,hc.height)});
     // en el teléfono, si se puede, se abre el menú de compartir con todos los archivos; si no, un .zip
     if(!window.claude&&/Android|iPhone|iPad/.test(navigator.userAgent)&&navigator.canShare){const fs=files.map(f=>new File([f.blob],f.name,{type:f.blob.type}));
       try{if(navigator.canShare({files:fs})){await navigator.share({files:fs});decir('Listo.');return}}catch(e){if(e&&e.name==='AbortError'){decir('');return}}}
@@ -1225,6 +1250,14 @@ $('#b-todos').onclick=async()=>{decir('Preparando todos los formatos…');
     const name='el-taller-'+st.tipo+'-todos.zip',r=await guardar(zip(files),name);decir(r==='ok'?'Listo: '+name:r==='no'?'Descarga cancelada.':'No se pudo descargar acá.',r==='ver')}
   catch{decir('No se pudieron generar los formatos.',1)}
 };
+// Nombre del PDF: (comité o coordinadora)_volantes.pdf. El nombre sale del campo; si nadie lo tocó, de lo escrito en la firma
+function volNombre(){if(typeof st.volNombre==='string')return st.volNombre;
+  const fs=SLOTS.map(([k])=>st.firma[k]).filter(f=>f.modo==='texto'&&String(f.texto||'').trim()),f=fs.find(x=>x.on)||fs[0];return f?String(f.texto).trim():''}
+function nombreVolantes(){ // sin tildes ni signos: hay sistemas que descartan el nombre entero si trae letras acentuadas
+  const n=volNombre().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9 ._()-]+/g,' ').replace(/\s+/g,' ').trim();return n?n+'_volantes.pdf':''}
+function volFalta(on){$('#vol-campo').classList.toggle('falta',on);
+  $('#vol-msg').textContent=on?'Falta este dato. Escribilo para poder descargar el PDF.':nombreVolantes()?'El archivo se va a llamar '+nombreVolantes():'Se usa para el nombre del archivo.'}
+$('#vol-nom').oninput=e=>{st.volNombre=e.target.value;guardarPieza();volFalta(false)};
 // Volantes: hoja A4 a 300 dpi con el diseño repetido 2 × 2 y líneas punteadas de corte
 async function hojaA4(){await Promise.all([ensureFont(ID.fuenteTitulo),ensureFont(ID.fuenteTexto)]);
   const QW=1240,QH=1754,q=document.createElement('canvas');render(q,ID,{...pieza(),formato:'volante',escala:QW/FORMATOS.volante.w},foto);

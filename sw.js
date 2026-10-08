@@ -1,6 +1,6 @@
 // El Taller: guarda la app en el dispositivo para que abra rápido y funcione sin conexión.
 // Al publicar una versión nueva, cambiá el número de VERSION para que los teléfonos la actualicen.
-const VERSION = 'el-taller-v9';
+const VERSION = 'el-taller-v11';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'favicon.svg', 'icon-192.png', 'icon-512.png',
   'fonts/LeagueGothic-Regular.ttf', 'fonts/GolosText-Regular.ttf', 'fonts/GolosText-Medium.ttf',
   'fonts/GolosText-SemiBold.ttf', 'fonts/GolosText-Bold.ttf'];
