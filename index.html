@@ -230,6 +230,7 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
                 <label for="foto-z" class="hint">Agrandar la foto</label><input type="range" id="foto-z" min="100" max="300" value="100">
                 <label for="foto-x" class="hint">Mover a los lados</label><input type="range" id="foto-x" min="0" max="100" value="50">
                 <label for="foto-y" class="hint">Mover arriba y abajo</label><input type="range" id="foto-y" min="0" max="100" value="50">
+                <label for="foto-a" class="hint" id="foto-a-lbl">Tamaño del espacio de la foto</label><input type="range" id="foto-a" min="0" max="100" value="100">
                 <label for="foto-g" class="hint" id="foto-g-lbl">Subir o bajar el degradado</label><input type="range" id="foto-g" min="0" max="100" value="50">
               </div>
             </div>
@@ -841,16 +842,19 @@ function palabras(text){ // -> párrafos de palabras; cada palabra es una lista 
     }});
   return pars;
 }
+const cl01=v=>v<0?0:v>1?1:v;
 function medirTexto(ctx,b,w,k){
   const size=b.size*k;ctx.font=fnt(b.f,b.w,size);
   const sp=ctx.measureText(' ').width,lines=[];let over=false;
-  for(const par of palabras(b.upper?b.text.toUpperCase():b.text)){
-    let cur=[],cw=0;
-    for(const word of par){const ww=word.reduce((s,p)=>s+(p.w=ctx.measureText(p.t).width),0);
-      if(ww>w)over=true;
-      if(cur.length&&cw+sp+ww>w){lines.push({words:cur,w:cw});cur=[word];cw=ww}
-      else{cw+=(cur.length?sp:0)+ww;cur.push(word)}}
-    lines.push({words:cur,w:cw});
+  const partir=(par,ancho)=>{const ls=[];let cur=[],cw=0;
+    for(const word of par){if(cur.length&&cw+sp+word.ww>ancho){ls.push({words:cur,w:cw});cur=[word];cw=word.ww}else{cw+=(cur.length?sp:0)+word.ww;cur.push(word)}}
+    ls.push({words:cur,w:cw});return ls};
+  for(const par of palabras(b.upper?b.text.toUpperCase():b.text)){let tot=0,may=0;
+    for(const word of par){word.ww=word.reduce((s,p)=>s+(p.w=ctx.measureText(p.t).width),0);if(word.ww>w)over=true;tot+=word.ww+sp;if(word.ww>may)may=word.ww}
+    let ls=partir(par,w);
+    // de 2 a 4 renglones: se reparten parejo para que no quede una palabra colgando al final
+    if(ls.length>=2&&ls.length<=4)for(const f of[1.04,1.12,1.22]){const alt=partir(par,Math.min(w,Math.max(may,tot/ls.length*f)));if(alt.length===ls.length){ls=alt;break}}
+    for(const l of ls)lines.push(l);
   }
   b._={size,sp,lines,lh:size*b.lh};return{h:lines.length*size*b.lh,over};
 }
@@ -946,15 +950,15 @@ function bloques(tipo,c,id,pz){
   let L;
   if(tipo==='convocatoria'||tipo==='actividad')
     L=[kick(c.etiqueta),gap(14),tit(c.titulo,tipo==='convocatoria'?176:164),gap(30),txt(c.bajada,42,{w:600}),gap(4),
-      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),42,{w:700}),gap(4),txt(c.lugar,38)];
+      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),42,{w:700}),gap(4),txt(c.lugar,40,{w:500})];
   else if(tipo==='oradores'){const O=pz&&pz.oradores||{},its=(O.lista||[]).filter(o=>String(o.nombre||'').trim()||(O.modo==='fotos'&&o.foto));
     L=[kick(c.etiqueta),gap(14),tit(c.titulo,146),gap(26),txt(c.bajada,40,{w:600}),gap(4),
-      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),40,{w:700}),gap(4),txt(c.lugar,36),gap(40),kick(its.length?c.orTit:'',40),gap(18),
+      txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),40,{w:700}),gap(4),txt(c.lugar,38,{w:500}),gap(40),kick(its.length?c.orTit:'',40),gap(18),
       O.modo==='fotos'?{k:'orfotos',items:its,f:fb,ft,d:230,text:its.length?'x':''}:O.modo==='compacta'?{k:'orlist',items:its,f:fb,size:32,cols:2,text:its.length?'x':''}:{k:'orlist',items:its,f:fb,size:40,text:its.length?'x':''}];}
   else if(tipo==='fecha')
     L=[kick(c.fecha,58),gap(14),tit(c.titulo,164),gap(36),rule,gap(36),txt(c.texto,40,{w:600})];
   else if(tipo==='comunicado')
-    L=[kick(c.etiqueta),gap(14),tit(c.titulo,112),gap(30),rule,gap(30),txt(c.cuerpo,34,{lh:1.42}),gap(36),txt(c.lugarFecha,28,{a:.8}),gap(6),txt(c.firma,32,{w:700})];
+    L=[kick(c.etiqueta),gap(14),tit(c.titulo,112),gap(30),rule,gap(30),txt(c.cuerpo,36,{lh:1.4,w:500}),gap(36),txt(c.lugarFecha,30,{a:.85}),gap(6),txt(c.firma,32,{w:700})];
   else if(tipo==='frase')
     L=[{k:'quote',text:'x'},gap(26),tit(c.cita,132),gap(36),rule,gap(28),txt(c.autor,38,{w:700})];
   else
@@ -976,7 +980,8 @@ function render(cv,ident,pz,foto){
   ctx.setTransform(E,0,0,E,0,0);ctx.globalAlpha=1;
   // geometría
   const sh=isH?60:isS?100:92;let R={x0:0,x1:W},cy0=top,ph=0;
-  if(modo==='bloque'){if(isH)R={x0:W*.4,x1:W};else{ph=Math.round(H*(isS?.4:.38));cy0=ph+52}}
+  const fa=cl01((pz.fotoAlto??100)/100); // cuánto ocupa la foto cuando va arriba (o al costado, en apaisado)
+  if(modo==='bloque'){if(isH)R={x0:W*(.22+.18*fa),x1:W};else{ph=Math.round(H*(.16+((isS?.4:.38)-.16)*fa));cy0=ph+52}}
   const rw=R.x1-R.x0, ft=id.fuenteTitulo, its=[];
   // firma: [comité] [coordinadora o departamental] [Frente Amplio], pegada al margen inferior derecho
   const slot=(img,txt)=>{const i=getImg(img);if(i){const s=Math.min(sh/i.naturalHeight,sh*2.6/i.naturalWidth);its.push({i,w:i.naturalWidth*s,h:i.naturalHeight*s})}
@@ -990,24 +995,30 @@ function render(cv,ident,pz,foto){
   // contenido: se achica hasta entrar
   const x=R.x0+m,w=rw-2*m,h=Math.max(40,cy1-cy0),bl=bloques(pz.tipo,pz.campos||{},id,pz);
   // Ajuste al espacio: el texto chico arranca en un tamaño cómodo para cada formato y el título ocupa lo que queda.
-  const kbMax=isS?1.36:isH?.84:pz.formato==='cuadrado'?1.04:1.16;
-  const encajar=(lista,ww,tope,kb0)=>{let kb=kb0,kt=kb*2.3,total=0;
-    for(;;){total=0;let overT=false,overB=false;for(const b of lista){const k=b.tit?kt:kb;b._k=k;const r=medir(ctx,b,ww,k);b._h=r.h;total+=r.h;if(r.over){if(b.tit)overT=true;else overB=true}}
-      if((total<=tope&&!overT&&!overB)||kb<.25)break;
-      if(overB){kb*=.96;continue}
-      if(overT||kt>kb)kt*=.96;                      // 1) el título baja hasta su proporción normal
-      else if(kb>kb0*.72){kb*=.96;kt=kb}            // 2) después bajan los dos juntos, sin que el texto chico pierda legibilidad
+  // kbBase: tamaño cómodo del texto chico en cada formato. Si hay poco texto puede crecer hasta kbTope; si hay mucho, baja lo menos posible.
+  const kbBase=isS?1.36:isH?.84:pz.formato==='cuadrado'?1.04:1.16,kbTope=kbBase*1.32;
+  const encajar=(lista,ww,tope,kb0)=>{let kb=kb0,kt=kb*2.3,total=0;const piso=Math.min(kb0,kbBase);
+    const mide=(a,t)=>{let tot=0,oT=false,oB=false;for(const b of lista){const k=b.tit?t:a;b._k=k;const r=medir(ctx,b,ww,k);b._h=r.h;tot+=r.h;if(r.over){if(b.tit)oT=true;else oB=true}}return{tot,oT,oB,ok:tot<=tope&&!oT&&!oB}};
+    for(;;){const r=mide(kb,kt);total=r.tot;
+      if(r.ok||kb<.25)break;
+      if(r.oB){kb*=.96;kt=Math.min(kt,kb*2.3);continue}
+      if(r.oT||kt>kb*.75)kt*=.96;                   // 1) primero cede el título, hasta quedar unas tres veces más grande que el texto
+      else if(kb>piso){kb*=.96;kt=kb*.75}           // 2) el texto chico vuelve de "grande" a su tamaño cómodo
       else if(kt>kb*.6)kt*=.96;                     // 3) el título cede un poco más
-      else{kb*=.96;kt=kb*.6}}                       // 4) último recurso: todo más chico
+      else{kb*=.96;kt=kb*.6}}                       // 4) recién ahí se achica todo
+    // 5) los renglones cambian de a saltos y puede sobrar lugar: lo recupera el texto chico y, si queda, el título
+    for(let n=0;n<24&&kb*1.02<=kb0;n++){if(mide(kb*1.02,kt).ok)kb*=1.02;else break}
+    for(let n=0;n<24&&kt*1.02<=kb*2.3;n++){if(mide(kb,kt*1.02).ok)kt*=1.02;else break}
+    total=mide(kb,kt).tot;
     return{kb,kt,total}};
-  let cols=[{lista:bl,x,w}],f1=encajar(bl,w,h*.86,kbMax);cols[0].total=f1.total;
+  let cols=[{lista:bl,x,w}],f1=encajar(bl,w,h*.86,kbTope);cols[0].total=f1.total;
   // En el formato apaisado, si el texto tuvo que achicarse, se prueba en dos columnas: título a la izquierda, datos a la derecha
-  if(isH&&modo!=='bloque'&&(f1.kb<kbMax*.92||f1.kt<f1.kb)){const ti=bl.findIndex(b=>b.tit);
+  if(isH&&modo!=='bloque'&&(f1.kb<kbBase*.92||f1.kt<f1.kb*.75)){const ti=bl.findIndex(b=>b.tit);
     if(ti>=0){let fin=ti+1;if(bl[fin+1]&&bl[fin].k==='gap'&&bl[fin+1].k==='rule')fin+=2;
       const A=bl.slice(0,fin),B=bl.slice(fin);while(B.length&&B[0].k==='gap')B.shift();
-      if(B.some(b=>b.k!=='gap')){const sep=56,wA=Math.round((w-sep)*.5),wB=w-sep-wA,fB=encajar(B,wB,h*.92,kbMax),fA=encajar(A,wA,h*.92,fB.kb);
+      if(B.some(b=>b.k!=='gap')){const sep=56,wA=Math.round((w-sep)*.5),wB=w-sep-wA,fB=encajar(B,wB,h*.92,kbTope),fA=encajar(A,wA,h*.92,fB.kb);
         if(fB.kb>=f1.kb*1.1&&fA.kt*1.05>=f1.kt)cols=[{lista:A,x,w:wA,total:fA.total},{lista:B,x:x+wA+sep,w:wB,total:fB.total}];
-        else{f1=encajar(bl,w,h*.86,kbMax);cols[0].total=f1.total}}}}
+        else{f1=encajar(bl,w,h*.86,kbTope);cols[0].total=f1.total}}}}
   for(const c of cols)c.y=modo==='fondo'?cy1-c.total:cy0+(h-c.total)*.46;
   let y=Math.min(...cols.map(c=>c.y));
   // fondo y foto
@@ -1043,7 +1054,7 @@ function render(cv,ident,pz,foto){
 /* ---------- Estado ---------- */
 const ID=norm({}); // identidad fija: paleta y tipografías del Frente Amplio
 const SLOTS=[['comite','Comité','Nombre del comité'],['coord','Coordinadora o Departamental','Nombre de la coordinadora o departamental']];
-const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,fotoX:50,fotoZoom:100,fotoGrad:50,campos:{},faOn:true,volNombre:null,firma:{}},ls.get('tgb.pieza',{}));
+const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,fotoX:50,fotoZoom:100,fotoGrad:50,fotoAlto:100,campos:{},faOn:true,volNombre:null,firma:{}},ls.get('tgb.pieza',{}));
 if(!FORMATOS[st.formato])st.formato='vertical';if(!TIPOS[st.tipo])st.tipo='convocatoria';
 if(!st.campos||typeof st.campos!=='object')st.campos={};if(!st.firma||typeof st.firma!=='object')st.firma={};
 for(const[k,t]of Object.entries(TIPOS)){st.campos[k]=st.campos[k]||{};for(const c of t.campos)if(st.campos[k][c[0]]==null)st.campos[k][c[0]]=c[2]}
@@ -1055,8 +1066,8 @@ let foto=null;
 const lista=k=>{const v=ls.get(k,[]);return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]};
 let logosRec=lista('tgb.logos'),nombresRec=lista('tgb.nombres');
 const recordar=(arr,v,max)=>[v,...arr.filter(x=>x!==v)].slice(0,max);
-const guardarPieza=()=>ls.set('tgb.pieza',{volNombre:st.volNombre,formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,faOn:st.faOn,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,campos:st.campos,firma:st.firma,oradores:st.oradores});
-const pieza=()=>({formato:st.formato,tipo:st.tipo,esquema:st.esquema,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,logoFA:st.logoFA,faOn:st.faOn,oradores:st.oradores,
+const guardarPieza=()=>ls.set('tgb.pieza',{volNombre:st.volNombre,formato:st.formato,tipo:st.tipo,esquema:st.esquema,logoFA:st.logoFA,faOn:st.faOn,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,fotoAlto:st.fotoAlto,campos:st.campos,firma:st.firma,oradores:st.oradores});
+const pieza=()=>({formato:st.formato,tipo:st.tipo,esquema:st.esquema,fotoModo:st.fotoModo,fotoY:st.fotoY,fotoX:st.fotoX,fotoZoom:st.fotoZoom,fotoGrad:st.fotoGrad,fotoAlto:st.fotoAlto,logoFA:st.logoFA,faOn:st.faOn,oradores:st.oradores,
   sig:SLOTS.map(([k])=>({...st.firma[k]})),campos:st.campos[st.tipo]});
 const seg=(box,val)=>{for(const b of box.children)b.setAttribute('aria-pressed',String(b.dataset.v===val))};
 function achicar(file){ // los logos se guardan livianos para poder recordarlos
@@ -1088,7 +1099,7 @@ function uiCrear(){
   const F=FORMATOS[st.formato];const vol=st.formato==='volante';$('#dims').textContent=vol?'Volante · al descargar sale la hoja A4 con 4':F.n+' · '+F.w+' × '+F.h+' px';
   $('#b-png2').textContent=vol?'Descargar la hoja A4 para imprimir':'Descargar la imagen';$('#b-png').textContent=vol?'Descargar hoja A4':'Descargar';{const i=$('#vol-nom');$('#vol-campo').hidden=!vol;if(document.activeElement!==i&&i.value!==volNombre())i.value=volNombre();if(nombreVolantes())volFalta(false);else if(!$('#vol-campo').classList.contains('falta'))volFalta(false)}$('#vol-hint').hidden=$('#b-solo').hidden=!vol;
   uiLogo();uiFirma();
-  $('#foto-ctl').hidden=!foto;for(const[idc,k]of FSL)$('#'+idc).value=st[k]??50;$('#foto-g').hidden=$('#foto-g-lbl').hidden=esVol||st.fotoModo!=='fondo';$('#s-fotomodo').hidden=esVol;$('#b-foto-x').hidden=!foto;seg($('#s-fotomodo'),st.fotoModo);
+  $('#foto-ctl').hidden=!foto;for(const[idc,k]of FSL)$('#'+idc).value=st[k]??50;$('#foto-g').hidden=$('#foto-g-lbl').hidden=esVol||st.fotoModo!=='fondo';$('#foto-a').hidden=$('#foto-a-lbl').hidden=!(esVol||st.fotoModo==='bloque');$('#s-fotomodo').hidden=esVol;$('#b-foto-x').hidden=!foto;seg($('#s-fotomodo'),st.fotoModo);
   pintar();
 }
 function uiCampos(){
@@ -1121,10 +1132,10 @@ function uiOradores(){const box=$('#oradores'),O=st.oradores;box.hidden=st.tipo!
 }
 function cambio(campos){guardarPieza();if(campos)uiCampos();uiCrear()}
 $('#b-foto').onclick=()=>$('#foto').click();
-$('#foto').onchange=e=>{const f=e.target.files[0];if(!f)return;const i=new Image();i.onload=()=>{foto=i;st.fotoZoom=100;st.fotoX=50;st.fotoY=50;st.fotoGrad=50;cambio()};i.onerror=()=>decir('No se pudo abrir esa imagen.',1);i.src=URL.createObjectURL(f);e.target.value=''};
+$('#foto').onchange=e=>{const f=e.target.files[0];if(!f)return;const i=new Image();i.onload=()=>{foto=i;st.fotoZoom=100;st.fotoX=50;st.fotoY=50;st.fotoGrad=50;st.fotoAlto=100;cambio()};i.onerror=()=>decir('No se pudo abrir esa imagen.',1);i.src=URL.createObjectURL(f);e.target.value=''};
 $('#b-foto-x').onclick=()=>{foto=null;uiCrear()};
 $('#s-fotomodo').onclick=e=>{const v=e.target.dataset.v;if(v){st.fotoModo=v;cambio()}};
-const FSL=[['foto-z','fotoZoom'],['foto-x','fotoX'],['foto-y','fotoY'],['foto-g','fotoGrad']];
+const FSL=[['foto-z','fotoZoom'],['foto-x','fotoX'],['foto-y','fotoY'],['foto-g','fotoGrad'],['foto-a','fotoAlto']];
 for(const[idc,k]of FSL)$('#'+idc).oninput=e=>{st[k]=+e.target.value;guardarPieza();pintar()};
 
 // Logo del Frente Amplio
