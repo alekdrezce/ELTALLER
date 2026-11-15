@@ -756,8 +756,8 @@ const TIPOS={
   consigna:{n:'Consigna',d:'Mensaje corto y grande',campos:[
     ['etiqueta','Texto chico de arriba','',1],['titulo','Consigna','El barrio se organiza',1,1],['resaltar','Palabra de la consigna a resaltar (si querés)','organiza',1],['bajada','Explicación corta','Sumate a tu comité de base.',1,1]]}
 };
-const ESQUEMAS={claro:'Fondo claro, título en color principal',claro2:'Fondo claro, título en color secundario',color:'Fondo de color principal',secundario:'Fondo de color secundario',acento:'Fondo de color de acento'};
-const ESQ_CORTO={claro:'Claro',claro2:'Claro 2',color:'Principal',secundario:'Secundario',acento:'Acento'};
+const ESQUEMAS={claro:'Fondo claro, título en color principal',claro2:'Fondo claro, título en color secundario',color:'Fondo de color principal',violeta:'Fondo violeta, texto claro y amarillo',secundario:'Fondo de color secundario',acento:'Fondo de color de acento'};
+const ESQ_CORTO={claro:'Claro',claro2:'Claro 2',color:'Principal',violeta:'Violeta',secundario:'Secundario',acento:'Acento'};
 const COLORES=[['primario','Principal'],['secundario','Secundario'],['acento','Acento'],['claro','Claro'],['oscuro','Texto oscuro']];
 // Tipografías disponibles (Google Fonts) con los pesos que existen de cada una
 const FA={
@@ -786,7 +786,7 @@ const F_TEXTO=['Golos Text','Barlow','Work Sans','Source Sans 3','Archivo','Open
 const NUEVA=()=>({nombre:'',pie:'',hashtag:'',logo:'',logoAlt:'',coord:'',coordAlt:'',coordNombre:'',
   colores:{primario:'#004F9E',secundario:'#ED1940',acento:'#FEC10D',claro:'#F3F0E3',oscuro:'#004F9E'},
   fuenteTitulo:'League Gothic',fuenteTexto:'Golos Text',mayus:true,alin:'izq',motivo:'limpio',
-  esquemas:['claro','claro2','color','secundario','acento'],premisas:''});
+  esquemas:['claro','claro2','color','violeta','secundario','acento'],premisas:''});
 const norm=d=>{const b=NUEVA();const o={...b,...d,colores:{...b.colores,...(d&&d.colores||{})}};
   if(!FUENTES[o.fuenteTitulo])o.fuenteTitulo=b.fuenteTitulo;if(!FUENTES[o.fuenteTexto])o.fuenteTexto=b.fuenteTexto;
   o.esquemas=Array.isArray(o.esquemas)?o.esquemas.filter(e=>ESQUEMAS[e]):[];if(!o.esquemas.length)o.esquemas=b.esquemas;return o};
@@ -821,8 +821,10 @@ function nombreColor(h){const[r,g,b]=rgb(h).map(v=>v/255),mx=Math.max(r,g,b),mn=
   if(l>.85)return'claro';if(l<.12)return'oscuro';if(d<.12)return'gris';
   let hh=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;hh=(hh*60+360)%360;
   return hh<15?'rojo':hh<40?'naranja':hh<70?'amarillo':hh<170?'verde':hh<200?'celeste':hh<260?'azul':hh<290?'violeta':hh<340?'rosa':'rojo'}
+const VIOLETA='#783ED9'; // esquema violeta: igual al de fondo azul, pero con el azul (fondo y texto oscuro) reemplazado por violeta
 function tema(id,esq){
-  const c=id.colores, bg={color:c.primario,secundario:c.secundario,acento:c.acento}[esq]||c.claro;
+  let c=id.colores;if(esq==='violeta'){c={...c,primario:VIOLETA,oscuro:VIOLETA};esq='color'}
+  const bg={color:c.primario,secundario:c.secundario,acento:c.acento}[esq]||c.claro;
   const best=x=>cr(c.claro,x)>=cr(c.oscuro,x)?c.claro:c.oscuro, fg=best(bg);
   let tit=esq==='claro'?c.primario:esq==='claro2'?c.secundario:fg;if(cr(tit,bg)<2.5)tit=fg;
   const hiBg=[c.acento,c.secundario,c.primario].find(x=>!eq(x,bg)&&!eq(x,tit)&&cr(x,bg)>=1.25)||fg, hiFg=best(hiBg);
