@@ -4,7 +4,7 @@
 
 // Al publicar una versión nueva, cambiá el número de VERSION para que los teléfonos la actualicen.
 3
-const VERSION = 'el-taller-v14';
+const VERSION = 'el-taller-v15';
 4
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'favicon.svg', 'icon-192.png', 'icon-512.png',
 5
