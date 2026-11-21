@@ -736,6 +736,9 @@ const FORMATOS={
   horizontal:{n:'Post horizontal',d:'Apaisado',w:1080,h:566,r:'1,91:1'}
 };
 const TIPOS={
+  n25:{n:'25N · Sin violencia de género',d:'Paleta violeta',campos:[
+    ['hashtag','Hashtag','#25N',1],['titulo','Consigna','Este espacio digital es libre de violencia basada en género',1,1],['resaltar','Palabra de la consigna a resaltar (si querés)','libre de violencia',1],
+    ['bajada','Slogan','Libres de violencia en todos los espacios',1,1]]},
   convocatoria:{n:'Convocatoria',d:'Llamado a participar',campos:[
     ['etiqueta','Texto chico de arriba','Convocatoria',1],['titulo','Título','Asamblea abierta del comité',1,1],['resaltar','Palabra del título a resaltar (si querés)','abierta',1],
     ['bajada','Explicación corta','Vení a discutir el plan de trabajo del barrio para el año que viene.',1,1],
@@ -960,6 +963,8 @@ function bloques(tipo,c,id,pz){
     L=[kick(c.etiqueta),gap(14),tit(c.titulo,146),gap(26),txt(c.bajada,40,{w:600}),gap(4),
       txt([t(c.fecha),t(c.hora)].filter(Boolean).join(' · '),40,{w:700}),gap(4),txt(c.lugar,38,{w:500}),gap(40),kick(its.length?c.orTit:'',40),gap(18),
       O.modo==='fotos'?{k:'orfotos',items:its,f:fb,ft,d:230,text:its.length?'x':''}:O.modo==='compacta'?{k:'orlist',items:its,f:fb,size:32,cols:2,text:its.length?'x':''}:{k:'orlist',items:its,f:fb,size:40,text:its.length?'x':''}];}
+  else if(tipo==='n25')
+    L=[kick(c.hashtag,92),gap(18),tit(c.titulo,150),gap(36),rule,gap(36),txt(c.bajada,54,{w:700})];
   else if(tipo==='fecha')
     L=[kick(c.fecha,58),gap(14),tit(c.titulo,164),gap(36),rule,gap(36),txt(c.texto,40,{w:600})];
   else if(tipo==='comunicado')
@@ -1060,7 +1065,7 @@ function render(cv,ident,pz,foto){
 const ID=norm({}); // identidad fija: paleta y tipografías del Frente Amplio
 const SLOTS=[['comite','Comité','Nombre del comité'],['coord','Coordinadora o Departamental','Nombre de la coordinadora o departamental']];
 const st=Object.assign({formato:'vertical',tipo:'convocatoria',esquema:'claro',logoFA:'auto',fotoModo:'fondo',fotoY:50,fotoX:50,fotoZoom:100,fotoGrad:50,fotoAlto:100,campos:{},faOn:true,volNombre:null,firma:{}},ls.get('tgb.pieza',{}));
-if(!FORMATOS[st.formato])st.formato='vertical';if(!TIPOS[st.tipo])st.tipo='convocatoria';
+if(!FORMATOS[st.formato])st.formato='vertical';st.tipo='n25';st.esquema='violeta'; // la pieza 25N es lo primero que se ve al abrir
 if(!st.campos||typeof st.campos!=='object')st.campos={};if(!st.firma||typeof st.firma!=='object')st.firma={};
 for(const[k,t]of Object.entries(TIPOS)){st.campos[k]=st.campos[k]||{};for(const c of t.campos)if(st.campos[k][c[0]]==null)st.campos[k][c[0]]=c[2]}
 const orNuevo=(nombre='',rol='')=>({nombre,rol,foto:'',zoom:1,x:50,y:50});
@@ -1096,10 +1101,10 @@ function pintar(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;ensureFont(
 /* ---------- Pantalla ---------- */
 function opciones(box,items,sel,on){box.replaceChildren(...items.map(o=>el('button',{class:'opt','aria-pressed':String(o.v===sel),type:'button',onclick:()=>on(o.v)},...(o.pre?[o.pre]:[]),el('span',{},el('b',{},o.n),...(o.d?[el('small',{},o.d)]:[])))))}
 function uiCrear(){
-  const esVol=st.formato==='volante',esqs=esVol?['claro','claro2']:ID.esquemas,idV=esVol?{...ID,colores:{...ID.colores,claro:'#FFFFFF'}}:ID;
+  const esVol=st.formato==='volante',esqs=esVol?['claro','claro2']:st.tipo==='n25'?['violeta']:ID.esquemas,idV=esVol?{...ID,colores:{...ID.colores,claro:'#FFFFFF'}}:ID;
   if(!esqs.includes(st.esquema))st.esquema=esqs[0];
   opciones($('#o-formato'),Object.entries(FORMATOS).map(([v,f])=>{const k=22/Math.max(f.w,f.h);return{v,n:f.n,d:f.d,pre:el('span',{class:'shape'},el('u',{style:`width:${Math.round(f.w*k)+4}px;height:${Math.round(f.h*k)+4}px`}))}}),st.formato,v=>{st.formato=v;cambio()});
-  opciones($('#o-tipo'),Object.entries(TIPOS).map(([v,t])=>({v,n:t.n,d:t.d})),st.tipo,v=>{st.tipo=v;respaldo=null;copyManual=null;$('#b-deshacer').hidden=true;cambio(true)});
+  opciones($('#o-tipo'),Object.entries(TIPOS).map(([v,t])=>({v,n:t.n,d:t.d})),st.tipo,v=>{if(st.tipo==='n25'&&v!=='n25'&&st.esquema==='violeta')st.esquema='claro';st.tipo=v;respaldo=null;copyManual=null;$('#b-deshacer').hidden=true;cambio(true)});
   opciones($('#o-esquema'),esqs.map(v=>{const t=tema(idV,v);return{v,n:esVol?esqNombre(ID,v).replace('Claro','Fondo blanco'):esqNombre(ID,v),pre:el('span',{class:'tile',style:`background:${t.bg};color:${t.tit}`},'Aa')}}),st.esquema,v=>{st.esquema=v;cambio()});
   const F=FORMATOS[st.formato];const vol=st.formato==='volante';$('#dims').textContent=vol?'Volante · al descargar sale la hoja A4 con 4':F.n+' · '+F.w+' × '+F.h+' px';
   $('#b-png2').textContent=vol?'Descargar la hoja A4 para imprimir (PDF)':'Descargar la imagen (PNG)';$('#b-png').textContent=vol?'Descargar hoja A4 (PDF)':'Descargar imagen (PNG)';{const i=$('#vol-nom');$('#vol-campo').hidden=!vol;if(document.activeElement!==i&&i.value!==volNombre())i.value=volNombre();if(nombreVolantes())volFalta(false);else if(!$('#vol-campo').classList.contains('falta'))volFalta(false)}$('#vol-hint').hidden=$('#b-solo').hidden=!vol;
@@ -1309,6 +1314,7 @@ function copyAuto(){const c=st.campos[st.tipo],q=x=>String(x||'').replace(/\*/g,
   else if(t==='actividad')B=[[q(c.titulo)],[cierre(q(c.bajada))],datos,[datos.some(Boolean)&&'Vení y participá.']];
   else if(t==='oradores'){const O=st.oradores.lista.filter(o=>q(o.nombre)).map(o=>'• '+q(o.nombre)+(q(o.rol)?', '+q(o.rol):''));
     B=[[[q(c.etiqueta),q(c.titulo)].filter(Boolean).join(': ')],[cierre(q(c.bajada))],datos,O.length?[(q(c.orTit)||'Participan')+':',...O]:[],[datos.some(Boolean)&&'¡Te esperamos!']]}
+  else if(t==='n25')B=[[q(c.titulo)&&'💜 '+q(c.titulo)],[cierre(q(c.bajada))],[q(c.hashtag)]];
   else if(t==='fecha')B=[[[q(c.fecha),q(c.titulo)].filter(Boolean).join(' | ')],[cierre(q(c.texto))]];
   else if(t==='comunicado')B=[[[q(c.etiqueta),q(c.titulo)].filter(Boolean).join(': ')],...q(c.cuerpo).split(/\n+/).map(p=>[p.trim()]),[q(c.lugarFecha),q(c.firma)]];
   else if(t==='frase')B=[[q(c.cita)&&'“'+q(c.cita).replace(/^["“”«]+|["“”»]+$/g,'')+'”',q(c.autor)&&'— '+q(c.autor)]];
